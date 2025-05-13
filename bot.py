@@ -36,7 +36,7 @@ async def fetch_countdown_text() -> str:
                                                                     "--disable-gpu",
                                                                     "--disable-dev-shm-usage"])
             page = await browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
-            await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            #await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
             await page.goto("https://case-battle.at/case/awpasiimov", timeout=60000, wait_until="domcontentloaded")
             # Ждём появления нужного элемента
             try:
@@ -51,7 +51,6 @@ async def fetch_countdown_text() -> str:
                                             ).then(lambda handle: handle.json_value())
             except Exception:
                 text = "❌ Элемент не найден или загрузка не завершилась."
-
             await browser.close()
             return text
     except Exception as e:
