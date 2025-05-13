@@ -1,37 +1,10 @@
 FROM python:3.11-slim
 
-# Установим системные зависимости для запуска браузера
-RUN apt-get update && apt-get install -y \
-    curl \
-    ca-certificates \
-    build-essential \
-    libglib2.0-0 \
-    libnss3 \
-    libgconf-2-4 \
-    libasound2 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libcups2 \
-    libx11-xcb1 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxrandr2 \
-    libgtk-3-0 \
-    libgbm1 \
-    libpango-1.0-0 \
-    wget \
-    && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
 
 COPY requirements.txt .
+RUN pip install --upgrade pip && pip install -r requirements.txt
 
-# Сначала ставим Python-зависимости
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Затем вызываем playwright install (уже после установки библиотеки)
-RUN python -m playwright install --with-deps chromium
-
-COPY bot.py .
+COPY . .
 
 CMD ["python", "bot.py"]

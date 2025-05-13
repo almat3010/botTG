@@ -1,96 +1,84 @@
+import os
 import logging
 import asyncio
-import os
-from aiogram import Bot, Dispatcher
+from aiogram import Bot, Dispatcher, types, F
 from aiogram.types import Message
-from aiogram.enums import ParseMode
-from aiogram.filters import Command
-from aiogram.utils.markdown import hbold
-from aiogram.client.default import DefaultBotProperties
-from aiogram import Router
-from playwright.async_api import async_playwright
+from selenium.webdriver.common.by import By
+import undetected_chromedriver as uc
+from dotenv import load_dotenv
 
+load_dotenv()
 
-# Чтение API_TOKEN из переменной окружения
 API_TOKEN = os.getenv("API_TOKEN")
-
-if not API_TOKEN:
-    raise ValueError("API_TOKEN не найден в переменных окружения")
-
-CHECK_INTERVAL = 1800  # Проверка каждые 5 минут
-
 logging.basicConfig(level=logging.INFO)
-bot = Bot(token=API_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
-router = Router()
-dp.include_router(router)
 
-subscribers: set[int] = set()
-last_known_value = None
+subscribers = set()
+last_value = None  # для отслеживания изменений
 
-async def fetch_countdown_text() -> str:
+async def get_countdown_text():
     try:
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True, args=["--no-sandbox",
-                                                                    "--disable-blink-features=AutomationControlled",
-                                                                    "--disable-gpu",
-                                                                    "--disable-dev-shm-usage"])
-            page = await browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
-            #await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-            await page.goto("https://case-battle.at/case/awpasiimov", timeout=60000, wait_until="domcontentloaded")
-            # Ждём появления нужного элемента
-            try:
-                #await page.wait_for_selector('//*[@id="case-box-app"]/div[1]/div[3]', timeout=60000)
-                #text = await page.inner_text('//*[@id="case-box-app"]/div[1]/div[3]')
-                text = await page.wait_for_function(
-                                            '''() => {
-                                                const el = document.querySelector('#case-box-app > div:nth-child(1) > div:nth-child(3)');
-                                                return el && el.offsetParent !== null ? el.innerText : null;
-                                            }''',
-                                                timeout=60000
-                                            ).then(lambda handle: handle.json_value())
-            except Exception:
-                text = "❌ Элемент не найден или загрузка не завершилась."
-            await browser.close()
-            return text
+        options = uc.ChromeOptions()
+        options.headless = True
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+
+        driver = uc.Chrome(options=options)
+        driver.get("https://case-battle.at/case/awpasiimov")
+        driver.implicitly_wait(15)
+
+        element = driver.find_element(By.CSS_SELECTOR, "#case-box-app > div.countdown > div:nth-child(3)")
+        text = element.text
+
+        driver.quit()
+        return text
     except Exception as e:
-        return f"🚨 Ошибка при получении данных: {e}"
+        return f"Ошибка при получении данных: {e}"
 
-@router.message(Command("start"))
-async def cmd_start(msg: Message):
-    subscribers.add(msg.chat.id)
-    await msg.answer("✅ Подписка на автоуведомления активна.\nНапиши /stop, чтобы отписаться.")
+@dp.message(F.text == "/start")
+async def cmd_start(message: Message):
+    await message.answer("Привет! Используй /subscribe чтобы подписаться на уведомления.")
 
-@router.message(Command("stop"))
-async def cmd_stop(msg: Message):
-    if msg.chat.id in subscribers:
-        subscribers.discard(msg.chat.id)
-        await msg.answer("❌ Подписка отключена.")
-    else:
-        await msg.answer("Ты и так не подписан 🙂")
+@dp.message(F.text == "/check")
+async def cmd_check(message: Message):
+    text = await asyncio.to_thread(get_countdown_text)
+    await message.answer(f"Результат: {text}")
 
-@router.message(Command("check"))
-async def cmd_check(msg: Message):
-    result = await fetch_countdown_text()
-    await msg.answer(f"{hbold('Результат')}: {result}")
+@dp.message(F.text == "/subscribe")
+async def cmd_subscribe(message: Message):
+    user_id = message.chat.id
+    subscribers.add(user_id)
+    await message.answer("✅ Подписка оформлена. Буду слать уведомления при изменениях!")
 
-async def background_checker():
-    global last_known_value
+@dp.message(F.text == "/unsubscribe")
+async def cmd_unsubscribe(message: Message):
+    user_id = message.chat.id
+    subscribers.discard(user_id)
+    await message.answer("❌ Подписка отменена.")
+
+@dp.message(F.text == "/stop")
+async def cmd_stop(message: Message):
+    await message.answer("Бот остановлен.")
+    await bot.session.close()
+    exit(0)
+
+async def auto_check_loop():
+    global last_value
     while True:
-        await asyncio.sleep(CHECK_INTERVAL)
-        current_value = await fetch_countdown_text()
-        if current_value != last_known_value:
-            last_known_value = current_value
-            text = f"{hbold('Обновление!')} Новое значение: {current_value}"
-            for chat_id in subscribers:
+        await asyncio.sleep(1800)  # проверка раз в 1800 секунд
+        text = await asyncio.to_thread(get_countdown_text)
+
+        if "Ошибка" not in text and text != last_value:
+            last_value = text
+            for user_id in subscribers:
                 try:
-                    await bot.send_message(chat_id=chat_id, text=text)
+                    await bot.send_message(user_id, f"🔔 Обновление: {text}")
                 except Exception as e:
-                    logging.warning(f"Не удалось отправить сообщение {chat_id}: {e}")
+                    logging.warning(f"Не удалось отправить сообщение {user_id}: {e}")
 
 async def main():
-    asyncio.create_task(background_checker())
-    await bot.delete_webhook(drop_pending_updates=True)
+    asyncio.create_task(auto_check_loop())
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
