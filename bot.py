@@ -31,14 +31,16 @@ last_known_value = None
 async def fetch_countdown_text() -> str:
     try:
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True, args=["--no-sandbox"])
-            page = await browser.new_page()
+            browser = await p.chromium.launch(headless=True, args=["--no-sandbox",
+                                                                    "--disable-blink-features=AutomationControlled",
+                                                                    "--disable-gpu",
+                                                                    "--disable-dev-shm-usage"])
+            await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            page = await browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
             await page.goto("https://case-battle.at/case/awpasiimov", timeout=60000)
             # Ждём появления нужного элемента
             try:
-                inner_text = page.locator('//*[@id="case-box-app"]/div[1]/div[3]')
-                await inner_text.wait_for("visible", timeout=60000)
-                # await page.wait_for_selector("#case-box-app > div.countdown > div:nth-child(3)", timeout=60000)
+                await page.wait_for_selector('//*[@id="case-box-app"]/div[1]/div[3]', timeout=60000)
                 text = await page.inner_text('//*[@id="case-box-app"]/div[1]/div[3]')
             except Exception:
                 text = "❌ Элемент не найден или загрузка не завершилась."
