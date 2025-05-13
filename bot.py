@@ -9,7 +9,8 @@ from aiogram.utils.markdown import hbold
 from aiogram.client.default import DefaultBotProperties
 from aiogram import Router
 import urllib3
-from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
+
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -31,15 +32,15 @@ dp.include_router(router)
 subscribers: set[int] = set()
 last_known_value = None
 
-def fetch_countdown_text() -> str:
+async def fetch_countdown_text() -> str:
     try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
-            page.goto("https://case-battle.at/case/awpasiimov", timeout=15000)
-            page.wait_for_selector("#case-box-app > div.countdown > div:nth-child(3)", timeout=10000)
-            text = page.inner_text("#case-box-app > div.countdown > div:nth-child(3)")
-            browser.close()
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True, args=["--no-sandbox"])
+            page = await browser.new_page()
+            await page.goto("https://case-battle.at/case/awpasiimov", timeout=15000)
+            await page.wait_for_selector("#case-box-app > div.countdown > div:nth-child(3)", timeout=10000)
+            text = await page.inner_text("#case-box-app > div.countdown > div:nth-child(3)")
+            await browser.close()
             return text
     except Exception as e:
         return f"Ошибка при получении данных: {e}"
@@ -59,14 +60,14 @@ async def cmd_stop(msg: Message):
 
 @router.message(Command("check"))
 async def cmd_check(msg: Message):
-    result = fetch_countdown_text()
+    result = await fetch_countdown_text()
     await msg.answer(f"{hbold('Результат')}: {result}")
 
 async def background_checker():
     global last_known_value
     while True:
         await asyncio.sleep(CHECK_INTERVAL)
-        current_value = fetch_countdown_text()
+        current_value = await fetch_countdown_text()
         if current_value != last_known_value:
             last_known_value = current_value
             text = f"{hbold('Обновление!')} Новое значение: {current_value}"
