@@ -59,7 +59,7 @@ async def cmd_start(message: Message):
 @dp.message(F.text == "/check")
 async def cmd_check(message: Message):
     text = await get_countdown_text()
-    await message.answer(f"⏱ Результат: {text}")
+    await message.answer(f"⏱ Результат кейсов «Один выстрел, один труп»: {text}")
 
 @dp.message(F.text == "/subscribe")
 async def cmd_subscribe(message: Message):
@@ -82,7 +82,7 @@ async def cmd_stop(message: Message):
 async def auto_check_loop():
     global last_value
     while True:
-        await asyncio.sleep(60)
+        await asyncio.sleep(1800) #1800 sec delay
         text = await get_countdown_text()
 
         # Обновлять только если значение изменилось и нет ошибки
