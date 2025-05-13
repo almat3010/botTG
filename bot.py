@@ -37,11 +37,18 @@ async def fetch_countdown_text() -> str:
                                                                     "--disable-dev-shm-usage"])
             await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
             page = await browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
-            await page.goto("https://case-battle.at/case/awpasiimov", timeout=60000)
+            await page.goto("https://case-battle.at/case/awpasiimov", timeout=60000, wait_until="domcontentloaded")
             # Ждём появления нужного элемента
             try:
-                await page.wait_for_selector('//*[@id="case-box-app"]/div[1]/div[3]', timeout=60000)
-                text = await page.inner_text('//*[@id="case-box-app"]/div[1]/div[3]')
+                #await page.wait_for_selector('//*[@id="case-box-app"]/div[1]/div[3]', timeout=60000)
+                #text = await page.inner_text('//*[@id="case-box-app"]/div[1]/div[3]')
+                text = await page.wait_for_function(
+                                            '''() => {
+                                                const el = document.querySelector('#case-box-app > div:nth-child(1) > div:nth-child(3)');
+                                                return el && el.offsetParent !== null ? el.innerText : null;
+                                            }''',
+                                                timeout=60000
+                                            ).then(lambda handle: handle.json_value())
             except Exception:
                 text = "❌ Элемент не найден или загрузка не завершилась."
 
