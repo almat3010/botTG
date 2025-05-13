@@ -8,11 +8,7 @@ from aiogram.filters import Command
 from aiogram.utils.markdown import hbold
 from aiogram.client.default import DefaultBotProperties
 from aiogram import Router
-import urllib3
 from playwright.async_api import async_playwright
-
-
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 # Чтение API_TOKEN из переменной окружения
@@ -37,14 +33,10 @@ async def fetch_countdown_text() -> str:
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True, args=["--no-sandbox"])
             page = await browser.new_page()
-            await page.goto("https://case-battle.at/case/awpasiimov", timeout=20000)
-            
-            # Ждём полной загрузки JS + XHR
-            await page.wait_for_load_state("networkidle", timeout=20000)
-
+            await page.goto("https://case-battle.at/case/awpasiimov", timeout=60000)
             # Ждём появления нужного элемента
             try:
-                await page.wait_for_selector("#case-box-app > div.countdown > div:nth-child(3)", timeout=20000)
+                await page.wait_for_selector("#case-box-app > div.countdown > div:nth-child(3)", timeout=60000)
                 text = await page.inner_text("#case-box-app > div.countdown > div:nth-child(3)")
             except Exception:
                 text = "❌ Элемент не найден или загрузка не завершилась."
