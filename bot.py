@@ -36,8 +36,10 @@ async def fetch_countdown_text() -> str:
             await page.goto("https://case-battle.at/case/awpasiimov", timeout=60000)
             # Ждём появления нужного элемента
             try:
-                await page.wait_for_selector("#case-box-app > div.countdown > div:nth-child(3)", timeout=60000)
-                text = await page.inner_text("#case-box-app > div.countdown > div:nth-child(3)")
+                text = page.locator('//*[@id="case-box-app"]/div[1]/div[3]')
+                await text.wait_for("visible", timeout=60000)
+                # await page.wait_for_selector("#case-box-app > div.countdown > div:nth-child(3)", timeout=60000)
+                # text = await page.inner_text("#case-box-app > div.countdown > div:nth-child(3)")
             except Exception:
                 text = "❌ Элемент не найден или загрузка не завершилась."
 
