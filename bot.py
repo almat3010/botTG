@@ -8,10 +8,8 @@ from aiogram.filters import Command
 from aiogram.utils.markdown import hbold
 from aiogram.client.default import DefaultBotProperties
 from aiogram import Router
-import cloudscraper
-from bs4 import BeautifulSoup
-import ssl
 import urllib3
+from playwright.sync_api import sync_playwright
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -34,26 +32,15 @@ subscribers: set[int] = set()
 last_known_value = None
 
 def fetch_countdown_text() -> str:
-    url = "https://case-battle.at/case/awpasiimov"
-
-    # Создаём кастомный SSL-контекст с отключённой проверкой
-    context = ssl.create_default_context()
-    context.check_hostname = False
-    context.verify_mode = ssl.CERT_NONE
-
-    # Передаём контекст в cloudscraper
-    scraper = cloudscraper.create_scraper(
-        ssl_context=context,
-        delay=10,
-        browser={"browser": "chrome", "platform": "windows", "desktop": True}
-    )
-
     try:
-        resp = scraper.get(url, timeout=15)
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "html.parser")
-        elem = soup.select_one("#case-box-app > div.countdown > div:nth-child(3)")
-        return elem.get_text(strip=True) if elem else "Элемент не найден"
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.goto("https://case-battle.at/case/awpasiimov", timeout=15000)
+            page.wait_for_selector("#case-box-app > div.countdown > div:nth-child(3)", timeout=10000)
+            text = page.inner_text("#case-box-app > div.countdown > div:nth-child(3)")
+            browser.close()
+            return text
     except Exception as e:
         return f"Ошибка при получении данных: {e}"
 
