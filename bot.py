@@ -37,13 +37,22 @@ async def fetch_countdown_text() -> str:
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True, args=["--no-sandbox"])
             page = await browser.new_page()
-            await page.goto("https://case-battle.at/case/awpasiimov", timeout=15000)
-            await page.wait_for_selector("#case-box-app > div.countdown > div:nth-child(3)", timeout=10000)
-            text = await page.inner_text("#case-box-app > div.countdown > div:nth-child(3)")
+            await page.goto("https://case-battle.at/case/awpasiimov", timeout=20000)
+            
+            # Ждём полной загрузки JS + XHR
+            await page.wait_for_load_state("networkidle", timeout=20000)
+
+            # Ждём появления нужного элемента
+            try:
+                await page.wait_for_selector("#case-box-app > div.countdown > div:nth-child(3)", timeout=20000)
+                text = await page.inner_text("#case-box-app > div.countdown > div:nth-child(3)")
+            except Exception:
+                text = "❌ Элемент не найден или загрузка не завершилась."
+
             await browser.close()
             return text
     except Exception as e:
-        return f"Ошибка при получении данных: {e}"
+        return f"🚨 Ошибка при получении данных: {e}"
 
 @router.message(Command("start"))
 async def cmd_start(msg: Message):
