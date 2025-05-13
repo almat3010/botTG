@@ -23,6 +23,7 @@ async def get_countdown_text():
         options.headless = True
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
+        options.binary_location = "/usr/bin/google-chrome"
 
         driver = uc.Chrome(options=options)
         driver.get("https://case-battle.at/case/awpasiimov")
