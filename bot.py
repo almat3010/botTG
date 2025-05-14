@@ -17,7 +17,7 @@ dp = Dispatcher()
 subscribers = set()
 last_value = None
 
-def get_countdown_text():
+async def get_countdown_text():
     urls = [
         "https://case-battle.at/case/awpasiimov",
         "https://case-battle.at/case/fade"
