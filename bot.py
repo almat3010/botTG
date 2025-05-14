@@ -17,33 +17,46 @@ dp = Dispatcher()
 subscribers = set()
 last_value = None
 
-async def get_countdown_text():
+def get_countdown_text():
+    urls = [
+        "https://case-battle.at/case/awpasiimov",
+        "https://case-battle.at/case/fade"
+    ]
+
+    options = uc.ChromeOptions()
+    options.headless = True
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_argument("--disable-infobars")
+    options.add_argument("--disable-extensions")
+    options.add_argument("--start-maximized")
+    options.add_argument("--window-size=1920,1080")
+    options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                         "AppleWebKit/537.36 (KHTML, like Gecko) "
+                         "Chrome/113.0.0.0 Safari/537.36")
+    options.binary_location = "/usr/bin/google-chrome"
+
     try:
-        options = uc.ChromeOptions()
-        options.headless = True
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-blink-features=AutomationControlled")
-        options.add_argument("--disable-infobars")
-        options.add_argument("--disable-extensions")
-        options.add_argument("--start-maximized")
-        options.add_argument("--window-size=1920,1080")
-        options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                            "AppleWebKit/537.36 (KHTML, like Gecko) "
-                            "Chrome/113.0.0.0 Safari/537.36")
-        options.binary_location = "/usr/bin/google-chrome"
-
-
         driver = uc.Chrome(options=options)
-        driver.get("https://case-battle.at/case/awpasiimov")
-        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-        driver.implicitly_wait(15)
+        results = []
 
-        element = driver.find_element(By.CSS_SELECTOR, "#case-box-app > div.countdown > div:nth-child(3)")
-        text = element.text.strip()
+        for url in urls:
+            driver.get(url)
+
+            # Подменяем navigator.webdriver
+            driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+
+            driver.implicitly_wait(15)
+
+            try:
+                element = driver.find_element(By.CSS_SELECTOR, "#case-box-app > div.countdown > div:nth-child(3)")
+                results.append(f"{url.split('/')[-1]}: {element.text.strip()}")
+            except Exception:
+                results.append(f"{url.split('/')[-1]}: элемент не найден")
 
         driver.quit()
-        return text
+        return "\n".join(results)
     except Exception as e:
         return f"Ошибка при получении данных: {e}"
 
@@ -59,7 +72,7 @@ async def cmd_start(message: Message):
 @dp.message(F.text == "/check")
 async def cmd_check(message: Message):
     text = await get_countdown_text()
-    await message.answer(f"⏱ Результат кейсов «Один выстрел, один труп»: {text}")
+    await message.answer(f"⏱ Результат кейсов Один выстрел, один труп, Градиент: {text}")
 
 @dp.message(F.text == "/subscribe")
 async def cmd_subscribe(message: Message):
